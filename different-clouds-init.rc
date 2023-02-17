@@ -1,0 +1,178 @@
+ __| |______________________| |__
+(__   ______________________   __)
+   | |                      | |
+   | |                      | |
+   | |         AWS          | |
+   | |                      | |
+ __| |______________________| |__
+(__   ______________________   __)
+   | |                      | |
+
+# Kubernetes cluster configuration
+   export KUBERNETES_VERSION=1.25.0
+   export CONTROL_PLANE_MACHINE_COUNT=3
+   export WORKER_MACHINE_COUNT=3
+
+# AWS region
+   export AWS_REGION="eu-west-1"
+
+# AWS machine configuration
+   export AWS_CREATE_BASTION=true
+   export AWS_PUBLIC_IP=false
+   export AWS_CONTROL_PLANE_MACHINE_FLAVOR=t3.large
+   export AWS_NODE_MACHINE_FLAVOR=t3.large
+   export AWS_SSH_KEY_NAME=default
+
+   export AWS_ACCESS_KEY_ID=<your-access-key>
+   export AWS_SECRET_ACCESS_KEY=<your-secret-key>
+
+# The clusterawsadm utility takes the credentials that you set as environment
+# variables and uses them to create a CloudFormation stack in your AWS account
+# with the correct IAM resources.
+   clusterawsadm bootstrap iam create-cloudformation-stack
+
+# Create the base64 encoded credentials using clusterawsadm.
+# This command uses your environment variables and encodes
+# them in a value to be stored in a Kubernetes Secret.
+  export AWS_B64ENCODED_CREDENTIALS=$(clusterawsadm bootstrap credentials encode-as-profile)
+
+
+# Finally, initialize the management cluster
+  clusterctl init --infrastructure aws --bootstrap "-" --control-plane "-"
+
+# Create the cluster manifest 
+  export CLUSTER_NAME=microk8s-aws
+  clusterctl generate cluster ${CLUSTER_NAME} --from ./templates/cluster-template-aws.yaml > cluster-aws.yaml       
+
+
+
+
+
+
+
+
+ __| |______________________| |__
+(__   ______________________   __)
+   | |                      | |
+   | |                      | |
+   | |      OpenStack       | |
+   | |                      | |
+ __| |______________________| |__
+(__   ______________________   __)
+   | |                      | |
+
+
+# Kubernetes cluster configuration
+export KUBERNETES_VERSION=1.24.0
+export CONTROL_PLANE_MACHINE_COUNT=1
+export WORKER_MACHINE_COUNT=1
+
+
+# OpenStack credentials configuration. No changes needed if you followed the README.
+export OPENSTACK_CLOUD=openstack
+export OPENSTACK_CLOUD_CONFIG_SECRET_NAME=<your-cloud-config-secret-name>
+
+
+# OpenStack region and network configuration. External network ID is only needed if multiple external networks exist.
+export OPENSTACK_EXTERNAL_NETWORK_ID=""
+export OPENSTACK_FAILURE_DOMAIN=<your-failure-domain>
+
+
+# OpenStack machine conifugration
+export OPENSTACK_IMAGE_NAME=<your-image-name>
+export OPENSTACK_CONTROL_PLANE_MACHINE_FLAVOR=m1.medium
+export OPENSTACK_NODE_MACHINE_FLAVOR=m1.medium
+export OPENSTACK_SSH_KEY_NAME=<your-ssh-key-name>
+
+
+# OpenStack network configuration
+export OPENSTACK_NETWORK_CIDR=10.6.0.0/24
+export OPENSTACK_DNS_NAMESERVERS=
+
+
+# (optional) Containerd HTTP proxy configuration. Leave empty if not required.
+export CONTAINERD_HTTP_PROXY="http://squid.internal:3128"
+export CONTAINERD_HTTPS_PROXY="http://squid.internal:3128"
+export CONTAINERD_NO_PROXY="10.0.0.0/8,192.168.0.0/16,127.0.0.1,172.16.0.0/16"
+
+# Upgrade configuration
+export UPGRADE_STRATEGY=RollingUpgrade
+
+# Secret for the OpenStack cloud configuration.
+sudo microk8s kubectl create -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cloud-config
+  labels:
+    clusterctl.cluster.x-k8s.io/move: "true"
+stringData:
+  cacert: ''
+  clouds.yaml: |
+    clouds:
+      openstack:
+        auth:
+          auth_url: <auth_url>
+          username: <username>
+          project_id: <project_id>
+          project_name: <project_name>
+          user_domain_name: <user_domain_name>
+          password: <password>
+        region_name: <region_name>
+        interface: public
+        verify: false
+        identity_api_version: 3
+EOF
+
+
+# Initialize the infrastructure provider.
+clusterctl init --infrastructure openstack --bootstrap "-" --control-plane "-"
+
+
+# Create the Cluster API object manifests.
+export CLUSTER_NAME=microk8s-openstack
+clusterctl generate cluster ${CLUSTER_NAME} --from ./templates/cluster-template-openstack.yaml > cluster-openstack.yaml
+
+
+
+
+
+
+
+
+
+ __| |______________________| |__
+(__   ______________________   __)
+   | |                      | |
+   | |                      | |
+   | |         GCP          | |
+   | |                      | |
+ __| |______________________| |__
+(__   ______________________   __)
+   | |                      | |
+
+
+
+# Kubernetes cluster configuration
+export KUBERNETES_VERSION=1.25.0
+export CONTROL_PLANE_MACHINE_COUNT=3
+export WORKER_MACHINE_COUNT=3
+
+# GCP configuration
+export GCP_REGION="europe-west1"
+export GCP_NETWORK_NAME=<your-network-name>
+export GCP_PROJECT=<your-project>
+
+# GCP machine configuration
+export GCP_PUBLIC_IP=true              # set to false if you have configured a cloud NAT
+export GCP_CONTROL_PLANE_MACHINE_TYPE=n1-standard-2
+export GCP_NODE_MACHINE_TYPE=n1-standard-2
+export IMAGE_ID=projects/{YOUR_PROJECT}/global/images/ubuntu-2204
+
+export GCP_B64ENCODED_CREDENTIALS=$(cat path/to/credentials.json | base64 | tr -d '\n')
+
+# Initialize the infrastructure provider.
+clusterctl init --infrastructure gcp  --bootstrap "-" --control-plane "-"
+
+# Create the Cluster API object manifests.
+clusterctl generate cluster microk8s-gcp --from ./templates/cluster-template-gcp.yaml > cluster-gcp.yaml
